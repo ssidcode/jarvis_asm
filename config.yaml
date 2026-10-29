@@ -1,0 +1,98 @@
+# ============================================================
+#  Jarvis — configuration
+#  Everything is overridable with env vars: JARVIS_<SECTION>_<KEY>
+#  e.g. JARVIS_LLM_MODEL=claude-opus-5
+# ============================================================
+
+audio:
+  sample_rate: 16000          # every stage in the pipeline runs at 16 kHz mono
+  frame_ms: 80               # 1280 samples — the chunk size openWakeWord wants
+  input_device: 0          # null = system default; run scripts/list_devices.py
+  output_device: null
+  lookback_seconds: 3.0       # ring buffer so we can re-read the wake phrase
+  gain: 1.0                   # software gain applied to input (1.0 = off)
+
+wakeword:
+  model: hey_jarvis           # pretrained openWakeWord model
+  threshold: 0.53              # 0-1. raise to cut false accepts, lower for sensitivity
+  trigger_level: 1            # consecutive frames above threshold required
+  refractory_seconds: 1.5     # ignore further detections for this long after a hit
+  vad_threshold: 0.0          # openWakeWord's built-in speech gate (0 = disabled)
+
+speaker:
+  enabled: true
+  model: speechbrain/spkrec-ecapa-voxceleb
+  voiceprint_path: ~/.jarvis/voiceprint.npz
+  # Cosine similarity gates. Calibrate with scripts/calibrate.py — do not guess.
+  threshold: 0.45             # single-chunk accept threshold
+  wakeword_threshold: 0.46    # looser gate on the short wake phrase (~1.2 s of audio)
+  verify_wakeword: true       # stage 1: check the voice that said "Hey Jarvis"
+  verify_command: true        # stage 2: re-check the voice that gave the command
+  min_verify_seconds: 0.6     # too-short audio is rejected rather than guessed on
+  unknown_speaker_response: silent   # silent | beep | spoken
+
+vad:
+  backend: webrtc             # webrtc | silero | energy
+  aggressiveness: 2           # webrtc only, 0-3
+  silence_ms: 800             # end of utterance after this much trailing silence
+  max_utterance_seconds: 20
+  min_utterance_seconds: 0.4
+  start_timeout_seconds: 4.0  # if you say nothing after the wake word, bail out
+
+stt:
+  # groq           -> hosted Whisper. ~150-350 ms, no 500 MB download.
+  #                   Needs GROQ_API_KEY. Audio leaves your machine.
+  # faster-whisper -> fully local and private. 0.3-1.5 s on CPU.
+  backend: groq
+  groq_model: whisper-large-v3-turbo   # or whisper-large-v3 (slower, marginally better)
+  api_key_env: GROQ_API_KEY
+  # Used by the faster-whisper backend, and as the fallback if Groq is
+  # unreachable or the key is missing:
+  model: small.en             # tiny.en | base.en | small.en | medium.en | large-v3
+  device: auto                # auto | cpu | cuda
+  compute_type: auto          # int8 | int8_float16 | float16 | float32
+  language: en
+  beam_size: 1                # 1 = greedy, lowest latency
+  initial_prompt: null        # bias the decoder toward your jargon/names
+
+llm:
+  # groq      -> fastest hosted option; needs GROQ_API_KEY
+  # anthropic -> needs ANTHROPIC_API_KEY; model: claude-sonnet-5-5
+  # ollama    -> fully local; base_url: http://localhost:11434/v1
+  backend: groq
+  model: openai/gpt-oss-120b
+  # Groq production models (console.groq.com/docs/models):
+  #   llama-3.3-70b-versatile   best general quality
+  #   llama-3.1-8b-instant      lowest latency, good enough for most commands
+  #   openai/gpt-oss-120b       strongest reasoning
+  #   openai/gpt-oss-20b        middle ground
+  api_key_env: GROQ_API_KEY
+  base_url: null              # null = the backend's default root
+  max_tokens: 400
+  temperature: 0.7
+  stream: true                # stream tokens so TTS can start mid-sentence
+  history_turns: 8
+  system_prompt: |
+    You are Jarvis, a voice assistant. Your replies are spoken aloud, so keep
+    them short — usually one or two sentences. Never use markdown, bullet
+    points, emoji, or code blocks. Say numbers and units as words a person
+    would speak. If you don't know something, say so in one sentence.
+
+tts:
+  backend: auto               # auto | piper | pyttsx3 | say | none
+  piper_voice: ~/.jarvis/voices/en_US-lessac-medium.onnx
+  rate: 175                   # pyttsx3 words per minute
+  voice: null                 # backend-specific voice id
+  sentence_streaming: true    # speak each sentence as the LLM produces it
+
+conversation:
+  followup_seconds: 6.0       # after a reply, accept a follow-up with no wake word
+  followup_requires_speaker: true
+  stop_phrases: ["stop", "never mind", "cancel", "shut up", "that's all"]
+  barge_in: true              # a wake word during playback interrupts the reply
+
+logging:
+  level: INFO                 # DEBUG shows per-frame scores
+  save_audio: false           # dump every accepted/rejected clip for debugging
+  audio_dir: ~/.jarvis/logs/audio
+  transcript_log: ~/.jarvis/logs/transcript.jsonl

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  macOS: run Jarvis in the background at login.
+
+    cp service/com.jarvis.assistant.plist ~/Library/LaunchAgents/
+    # edit the paths below to match your install
+    launchctl load ~/Library/LaunchAgents/com.jarvis.assistant.plist
+    tail -f ~/.jarvis/logs/stdout.log
+
+  The first run will prompt for Microphone permission — grant it to the
+  Python binary, or Jarvis will capture silence forever.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.jarvis.assistant</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/YOUR_USER/jarvis/.venv/bin/python</string>
+        <string>-m</string>
+        <string>jarvis</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/YOUR_USER/jarvis</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>ANTHROPIC_API_KEY</key>
+        <string>sk-ant-REPLACE_ME</string>
+        <key>PYTHONUNBUFFERED</key>
+        <string>1</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/Users/YOUR_USER/.jarvis/logs/stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/YOUR_USER/.jarvis/logs/stderr.log</string>
+    <key>ProcessType</key>
+    <string>Interactive</string>
+</dict>
+</plist>
